@@ -1,0 +1,126 @@
+extern crate gtk;
+extern crate gio;
+extern crate glib;
+
+use gtk::prelude::*;
+use gio::prelude::*;
+use std::env::args;
+use gtk::{Application};
+use glib::{clone};
+
+#[macro_use]
+mod utils;
+mod core;
+mod timer;
+
+use crate::timer::Timer;
+use crate::core::*;
+
+fn main() {
+	// if gtk::init().is_err(){
+	// 	println!("A inicialização do gtk falhou!");
+	// }
+
+	let application = Application::new(
+			Some("com.github.marciosr.temporizador"),
+			Default::default(),
+		).expect("A incialização da GTK Application falhou!");
+
+	application.connect_activate(move|app| {
+		let ui_src = include_str!("window.ui");
+		let ui = gtk::Builder::new_from_string(ui_src);
+
+		let timer = Timer::new(&ui);
+
+		app.add_window(&timer.window);
+
+		let core = Core::new();
+
+		{
+			let core_clone = core.clone();
+
+			timer.start_button.connect_clicked(clone!(	@strong timer => move|_| {
+				println!("Teste!");
+				*core_clone.stop.borrow_mut() = false;
+				let (sender, receiver) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+				let sender_clone = sender.clone();
+
+				do_timeout (&timer, &sender_clone);
+
+				receiver.attach(None, clone!( @weak timer,
+																			@strong core_clone
+																			=> @default-return glib::Continue(true), move |msg| {
+
+					do_receiver(msg, &timer, &core_clone)
+
+				}));
+			}));
+		}
+
+		{
+			let core_clone = core.clone();
+
+			timer.continue_button.connect_clicked(clone!(	@strong timer => move|_| {
+				println!("Teste!");
+
+
+				let (sender, receiver) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+				let sender_clone = sender.clone();
+
+				do_timeout (&timer, &sender_clone);
+				*core_clone.stop.borrow_mut() = false;
+				*core_clone.pause.borrow_mut() = false;
+				receiver.attach(None, clone!( @weak timer,
+																			@strong core_clone => @default-return glib::Continue(true), move |msg| {
+
+					do_receiver(msg, &timer, &core_clone)
+
+				}));
+			}));
+		}
+
+		{ // Bloco que implementa a ação de parar o temporizador
+			let core_clone = core.clone();
+			timer.stop_button.connect_clicked(clone!( @strong timer => move|_| {
+				*core_clone.stop.borrow_mut() = true;
+				timer.stack.set_visible_child_name("start");
+
+				timer.hours_adjustment.set_value(0.0);
+				timer.minutes_adjustment.set_value(0.0);
+				timer.seconds_adjustment.set_value(0.0);
+
+				timer.hours_spinbutton.set_sensitive(true);
+				timer.minutes_spinbutton.set_sensitive(true);
+				timer.seconds_spinbutton.set_sensitive(true);
+				println!("STOP PLEASE!");
+
+			}));
+		}
+
+		{ // Bloco de pausa
+			let core_clone = core.clone();
+			timer.pause_button.connect_clicked(clone!(@weak timer => move|_| {
+
+				// Alterna para a página de continue do gtk_stack
+				timer.stack.set_visible_child_name("continue");
+
+				// Recupera o valor atual do tempo
+				let seconds =
+					timer.hours_adjustment.get_value() * 3600.0 +
+					timer.minutes_adjustment.get_value() * 60.0 +
+					timer.seconds_adjustment.get_value();
+
+				*core_clone.pause_value.borrow_mut() = seconds;
+				*core_clone.pause.borrow_mut() = true;
+				*core_clone.stop.borrow_mut() = true; // Altera o estado para parar o receiver
+				println!("O valor do pause_clone dentro do callback do pause_button é: {:?}", core_clone.pause_value);
+				println!("O valor do pause_clone dentro do callback do pause_button é: {}", *core_clone.pause_value.borrow());
+			}));
+		}
+
+		timer.window.show();
+	});
+	application.run(&args().collect::<Vec<_>>());
+}
+
+
