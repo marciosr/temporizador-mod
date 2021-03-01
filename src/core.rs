@@ -1,6 +1,6 @@
-extern crate gtk;
-extern crate gio;
-extern crate glib;
+//extern crate gtk;
+//extern crate gio;
+//extern crate glib;
 
 use std::thread;
 use std::cell::RefCell;
@@ -8,6 +8,8 @@ use std::rc::Rc;
 use gtk::prelude::*;
 
 use crate::timer::Timer;
+use crate::glib::{Sender, Continue, timeout_add_seconds};
+
 
 pub enum Time {
 	UpdateTime(f64),
@@ -37,7 +39,7 @@ impl Core {
 }
 
 pub fn do_timeout (	timer:		&Timer,
-										sender:	&glib::Sender<Time>) {
+										sender:	&Sender<Time>) {
 	let mut seconds =
 		timer.hours_adjustment.get_value() * 3600.0 +
 		timer.minutes_adjustment.get_value() * 60.0 +
@@ -52,7 +54,7 @@ pub fn do_timeout (	timer:		&Timer,
 		let sender_clone = sender.clone();
 
 		thread::spawn(move || {
-			glib::timeout_add_seconds(1, move||  {
+			timeout_add_seconds(1, move||  {
 				if seconds > 0.0 {
 					seconds = seconds - 1.0;
 				}
@@ -63,12 +65,12 @@ pub fn do_timeout (	timer:		&Timer,
 				match sender_result {
 					Ok(_) => {
 						if seconds > 0.0 {
-							glib::Continue(true)
+							Continue(true)
 						} else {
-							glib::Continue(false)
+							Continue(false)
 						}
 					},
-					Err(_) => glib::Continue(false),
+					Err(_) => Continue(false),
 				}
 			});
 		});
@@ -78,13 +80,13 @@ pub fn do_timeout (	timer:		&Timer,
 pub fn do_receiver (msg: 		Time,
 										timer:		&Timer,
 										core:		&Rc<Core>
-										) ->		glib::Continue {
+										) ->		Continue {
 
 
 	let padrao = Rc::new(RefCell::new(true));
-	if *core.stop == *padrao {
+	if core.stop == padrao {
 
-		if *core.pause != *padrao {
+		if core.pause != padrao {
 
 			timer.hours_adjustment.set_value(0.0);
 			timer.minutes_adjustment.set_value(0.0);
@@ -97,7 +99,7 @@ pub fn do_receiver (msg: 		Time,
 		} else {
 			timer.stack.set_visible_child_name("continue");
 		}
-		glib::Continue(false)
+		Continue(false)
 	} else {
 		match msg {
 			Time::UpdateTime(secs) => {
@@ -116,6 +118,6 @@ pub fn do_receiver (msg: 		Time,
 				}
 			}
 		}
-		glib::Continue(true)
+		Continue(true)
 	}
 }

@@ -1,12 +1,12 @@
 extern crate gtk;
-extern crate gio;
+//extern crate gio;
 extern crate glib;
 
 use gtk::prelude::*;
-use gio::prelude::*;
+//use gio::prelude::*;
 use std::env::args;
 use gtk::{Application};
-use glib::{clone};
+//use gtk::{gio, glib};
 
 #[macro_use]
 mod utils;
@@ -15,20 +15,21 @@ mod timer;
 
 use crate::timer::Timer;
 use crate::core::*;
+use crate::glib::{clone, MainContext, PRIORITY_DEFAULT, Continue};
+
 
 fn main() {
-	// if gtk::init().is_err(){
-	// 	println!("A inicialização do gtk falhou!");
-	// }
 
-	let application = Application::new(
-			Some("com.github.marciosr.temporizador"),
-			Default::default(),
+	let application = Application::new(Some("com.github.marciosr.temporizador"),
+		Default::default(),
 		).expect("A incialização da GTK Application falhou!");
 
-	application.connect_activate(move|app| {
+	application.connect_startup(move|app| {
 		let ui_src = include_str!("window.ui");
-		let ui = gtk::Builder::new_from_string(ui_src);
+		let ui = gtk::Builder::new();
+		ui.add_from_string(&ui_src)
+			.expect("Erro ao abrir aruquivo da interface");
+
 
 		let timer = Timer::new(&ui);
 
@@ -39,17 +40,17 @@ fn main() {
 		{
 			let core_clone = core.clone();
 
-			timer.start_button.connect_clicked(clone!(	@strong timer => move|_| {
+			timer.start_button.connect_clicked(clone!(@strong timer => move|_| {
 				println!("Teste!");
 				*core_clone.stop.borrow_mut() = false;
-				let (sender, receiver) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+				let (sender, receiver) = MainContext::channel(PRIORITY_DEFAULT);
 				let sender_clone = sender.clone();
 
 				do_timeout (&timer, &sender_clone);
 
 				receiver.attach(None, clone!( @weak timer,
 																			@strong core_clone
-																			=> @default-return glib::Continue(true), move |msg| {
+																			=> @default-return Continue(true), move |msg| {
 
 					do_receiver(msg, &timer, &core_clone)
 
@@ -64,14 +65,14 @@ fn main() {
 				println!("Teste!");
 
 
-				let (sender, receiver) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+				let (sender, receiver) = MainContext::channel(PRIORITY_DEFAULT);
 				let sender_clone = sender.clone();
 
 				do_timeout (&timer, &sender_clone);
 				*core_clone.stop.borrow_mut() = false;
 				*core_clone.pause.borrow_mut() = false;
 				receiver.attach(None, clone!( @weak timer,
-																			@strong core_clone => @default-return glib::Continue(true), move |msg| {
+																			@strong core_clone => @default-return Continue(true), move |msg| {
 
 					do_receiver(msg, &timer, &core_clone)
 
@@ -120,7 +121,9 @@ fn main() {
 
 		timer.window.show();
 	});
-	application.run(&args().collect::<Vec<_>>());
+	let ret = application.run(&args().collect::<Vec<_>>());
+	std::process::exit(ret);
+
 }
 
 

@@ -1,9 +1,10 @@
 extern crate gtk;
-extern crate gio;
-extern crate glib;
+//extern crate gio;
+//extern crate glib;
 
 use std::rc::Rc;
 use gtk::prelude::*;
+//use glib::clone;
 
 pub struct Timer {
 	pub window:								gtk::ApplicationWindow,
@@ -36,8 +37,13 @@ impl Timer {
 		get_widget!(ui, gtk::Stack, stack);
 		get_widget!(ui, gtk::ApplicationWindow, window);
 
-		window.set_title("Temporizador");
+		window.set_title(Some("Temporizador"));
 		window.set_default_size(350, 200);
+
+
+		// window.quit_activate(clone!(@strong window => move |_|{
+		// 	window.destroy();
+		// }));
 
 		let timer = Rc::new(Self {
 			window,
