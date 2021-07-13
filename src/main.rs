@@ -1,6 +1,6 @@
 extern crate gtk;
 //extern crate gio;
-extern crate glib;
+//extern crate glib;
 
 use gtk::prelude::*;
 //use gio::prelude::*;
@@ -15,14 +15,14 @@ mod timer;
 
 use crate::timer::Timer;
 use crate::core::*;
-use crate::glib::{clone, MainContext, PRIORITY_DEFAULT, Continue};
-
+use crate::gtk::glib::{MainContext, PRIORITY_DEFAULT, Continue};
+use gtk::glib;
+use glib::clone;
 
 fn main() {
 
 	let application = Application::new(Some("com.github.marciosr.temporizador"),
-		Default::default(),
-		).expect("A incialização da GTK Application falhou!");
+		Default::default());
 
 	application.connect_startup(move|app| {
 		let ui_src = include_str!("window.ui");
@@ -107,9 +107,9 @@ fn main() {
 
 				// Recupera o valor atual do tempo
 				let seconds =
-					timer.hours_adjustment.get_value() * 3600.0 +
-					timer.minutes_adjustment.get_value() * 60.0 +
-					timer.seconds_adjustment.get_value();
+					timer.hours_adjustment.value() * 3600.0 +
+					timer.minutes_adjustment.value() * 60.0 +
+					timer.seconds_adjustment.value();
 
 				*core_clone.pause_value.borrow_mut() = seconds;
 				*core_clone.pause.borrow_mut() = true;
@@ -121,7 +121,7 @@ fn main() {
 
 		timer.window.show();
 	});
-	let ret = application.run(&args().collect::<Vec<_>>());
+	let ret = application.run(); // &args().collect::<Vec<_>>()
 	std::process::exit(ret);
 
 }

@@ -8,7 +8,7 @@ use std::rc::Rc;
 use gtk::prelude::*;
 
 use crate::timer::Timer;
-use crate::glib::{Sender, Continue, timeout_add_seconds};
+use crate::gtk::glib::{Sender, Continue, timeout_add_seconds};
 
 
 pub enum Time {
@@ -41,9 +41,9 @@ impl Core {
 pub fn do_timeout (	timer:		&Timer,
 										sender:	&Sender<Time>) {
 	let mut seconds =
-		timer.hours_adjustment.get_value() * 3600.0 +
-		timer.minutes_adjustment.get_value() * 60.0 +
-		timer.seconds_adjustment.get_value();
+		timer.hours_adjustment.value() * 3600.0 +
+		timer.minutes_adjustment.value() * 60.0 +
+		timer.seconds_adjustment.value();
 
 	if seconds > 0.0 {
 		timer.stack.set_visible_child_name("pause_stop");
